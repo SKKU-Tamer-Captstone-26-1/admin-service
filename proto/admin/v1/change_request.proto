@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package ontheblock.admin.v1;
+
+option java_package = "com.ontheblock.admin.v1";
+option java_multiple_files = true;
+option go_package = "github.com/ontheblock/infra/proto/admin/v1;adminv1";
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/common.proto";
+
+// ChangeRequestService handles the store-info modification request workflow.
+// Managers (ROLE_BAR / ROLE_REQUE) submit requests; operators (ROLE_ADMIN) review them.
+service ChangeRequestService {
+  // Manager-side RPCs
+  rpc SubmitChangeRequest(SubmitChangeRequestRequest) returns (SubmitChangeRequestResponse);
+  rpc ListMyChangeRequests(ListMyChangeRequestsRequest) returns (ListMyChangeRequestsResponse);
+  // WithdrawChangeRequest returns FAILED_PRECONDITION if status is not PENDING.
+  rpc WithdrawChangeRequest(WithdrawChangeRequestRequest) returns (WithdrawChangeRequestResponse);
+
+  // Operator-side RPCs
+  rpc ListChangeRequests(ListChangeRequestsRequest) returns (ListChangeRequestsResponse);
+  rpc GetChangeRequest(GetChangeRequestRequest) returns (GetChangeRequestResponse);
+  // ApproveChangeRequest applies proposed_changes to store/product data.
+  // If auto_republish_marker is true, also triggers marker re-publication for the linked place.
+  rpc ApproveChangeRequest(ApproveChangeRequestRequest) returns (ApproveChangeRequestResponse);
+  // RejectChangeRequest returns INVALID_ARGUMENT if review_comment is empty.
+  rpc RejectChangeRequest(RejectChangeRequestRequest) returns (RejectChangeRequestResponse);
+}
+
+// --- Enums ---
+
+enum TargetType {
+  TARGET_TYPE_UNSPECIFIED = 0;
+  TARGET_TYPE_STORE_INFO = 1;
+  TARGET_TYPE_PRODUCT_LIST = 2;
+  TARGET_TYPE_PRODUCT_IMAGE = 3;
+}
+
+enum ChangeRequestStatus {
+  CHANGE_REQUEST_STATUS_UNSPECIFIED = 0;
+  CHANGE_REQUEST_STATUS_PENDING = 1;
+  CHANGE_REQUEST_STATUS_APPROVED = 2;
+  CHANGE_REQUEST_STATUS_REJECTED = 3;
+  CHANGE_REQUEST_STATUS_WITHDRAWN = 4;
+}
+
+// --- Shared messages ---
+
+message ChangeRequestSummary {
+  string id = 1;
+  string requester_id = 2;
+  TargetType target_type = 3;
+  string target_ref = 4; // UUID string of the place or product
+  ChangeRequestStatus status = 5;
+  string reviewer_id = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+  string review_comment = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// ChangeRequestDetail includes snapshots for diff rendering on the operator review screen.
+message ChangeRequestDetail {
+  string id = 1;
+  string requester_id = 2;
+  TargetType target_type = 3;
+  string target_ref = 4;
+  bytes current_snapshot = 5;   // JSON snapshot of current store/product state
+  bytes proposed_changes = 6;   // JSON of requested changes
+  repeated string attachment_urls = 7;
+  ChangeRequestStatus status = 8;
+  string reviewer_id = 9;
+  google.protobuf.Timestamp reviewed_at = 10;
+  string review_comment = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// --- SubmitChangeRequest ---
+
+message SubmitChangeRequestRequest {
+  TargetType target_type = 1;
+  string target_ref = 2;        // UUID string of the place or product
+  bytes proposed_changes = 3;   // JSON bytes describing the change
+  repeated string attachment_urls = 4;
+}
+
+message SubmitChangeRequestResponse {
+  ChangeRequestSummary change_request = 1;
+}
+
+// --- ListMyChangeRequests ---
+
+message ListMyChangeRequestsRequest {
+  ChangeRequestStatus status_filter = 1; // UNSPECIFIED = all
+  ontheblock.common.v1.PaginationRequest pagination = 2;
+}
+
+message ListMyChangeRequestsResponse {
+  repeated ChangeRequestSummary change_requests = 1;
+  ontheblock.common.v1.PaginationResponse pagination = 2;
+}
+
+// --- WithdrawChangeRequest ---
+
+message WithdrawChangeRequestRequest {
+  string id = 1;
+}
+
+message WithdrawChangeRequestResponse {
+  ChangeRequestSummary change_request = 1;
+}
+
+// --- ListChangeRequests ---
+
+message ListChangeRequestsRequest {
+  ChangeRequestStatus status_filter = 1;
+  string store_name_search = 2;
+  string requester_id = 3;
+  google.protobuf.Timestamp from = 4;
+  google.protobuf.Timestamp to = 5;
+  ontheblock.common.v1.PaginationRequest pagination = 6;
+}
+
+message ListChangeRequestsResponse {
+  repeated ChangeRequestSummary change_requests = 1;
+  ontheblock.common.v1.PaginationResponse pagination = 2;
+}
+
+// --- GetChangeRequest ---
+
+message GetChangeRequestRequest {
+  string id = 1;
+}
+
+message GetChangeRequestResponse {
+  ChangeRequestDetail change_request = 1;
+}
+
+// --- ApproveChangeRequest ---
+
+message ApproveChangeRequestRequest {
+  string id = 1;
+  bool auto_republish_marker = 2;
+}
+
+message ApproveChangeRequestResponse {
+  ChangeRequestSummary change_request = 1;
+}
+
+// --- RejectChangeRequest ---
+
+message RejectChangeRequestRequest {
+  string id = 1;
+  string review_comment = 2; // required; returns INVALID_ARGUMENT if empty
+}
+
+message RejectChangeRequestResponse {
+  ChangeRequestSummary change_request = 1;
+}

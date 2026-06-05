@@ -1,0 +1,306 @@
+syntax = "proto3";
+
+package ontheblock.admin.v1;
+
+option java_package = "com.ontheblock.admin.v1";
+option java_multiple_files = true;
+option go_package = "github.com/ontheblock/infra/proto/admin/v1;adminv1";
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/common.proto";
+
+// MarkerAdminService manages map markers and their publication lifecycle.
+// All RPCs require ROLE_ADMIN.
+service MarkerAdminService {
+  rpc ListMarkers(ListMarkersRequest) returns (ListMarkersResponse);
+  rpc GetMarker(GetMarkerRequest) returns (GetMarkerResponse);
+  rpc CreateMarker(CreateMarkerRequest) returns (CreateMarkerResponse);
+  rpc UpdateMarker(UpdateMarkerRequest) returns (UpdateMarkerResponse);
+  rpc PublishMarker(PublishMarkerRequest) returns (PublishMarkerResponse);
+  rpc UnpublishMarker(UnpublishMarkerRequest) returns (UnpublishMarkerResponse);
+  rpc DeleteMarker(DeleteMarkerRequest) returns (DeleteMarkerResponse);
+  rpc BatchPublishMarkers(BatchPublishMarkersRequest) returns (BatchPublishMarkersResponse);
+  rpc ListPublicationEvents(ListPublicationEventsRequest) returns (ListPublicationEventsResponse);
+  // RetriggerPublicationEvent resets consumed_at to NULL so the event is reprocessed.
+  rpc RetriggerPublicationEvent(RetriggerPublicationEventRequest) returns (RetriggerPublicationEventResponse);
+}
+
+// LayerAdminService manages marker layer metadata and ordering.
+// All RPCs require ROLE_ADMIN.
+service LayerAdminService {
+  rpc ListLayers(ListLayersRequest) returns (ListLayersResponse);
+  rpc CreateLayer(CreateLayerRequest) returns (CreateLayerResponse);
+  rpc UpdateLayer(UpdateLayerRequest) returns (UpdateLayerResponse);
+  // DeleteLayer returns FAILED_PRECONDITION if any marker uses this layer.
+  rpc DeleteLayer(DeleteLayerRequest) returns (DeleteLayerResponse);
+  rpc ReorderLayers(ReorderLayersRequest) returns (ReorderLayersResponse);
+}
+
+// DashboardService returns aggregated stats for the operator home dashboard.
+// Requires ROLE_ADMIN.
+service DashboardService {
+  rpc GetDashboardStats(GetDashboardStatsRequest) returns (GetDashboardStatsResponse);
+}
+
+// --- Enums ---
+
+enum MarkerVisibility {
+  MARKER_VISIBILITY_UNSPECIFIED = 0;
+  MARKER_VISIBILITY_VISIBLE = 1;
+  MARKER_VISIBILITY_HIDDEN = 2;
+}
+
+enum PublicationEventType {
+  PUBLICATION_EVENT_TYPE_UNSPECIFIED = 0;
+  PUBLICATION_EVENT_TYPE_PUBLISHED = 1;
+  PUBLICATION_EVENT_TYPE_UNPUBLISHED = 2;
+}
+
+// --- Shared messages ---
+
+message MarkerSummary {
+  string id = 1;
+  string layer_code = 2;
+  string label = 3;
+  double lat = 4;
+  double lng = 5;
+  string geohash = 6;
+  MarkerVisibility visibility = 7;
+  string place_ref = 8; // UUID string; empty if no place linked
+  int32 published_revision = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message MarkerDetail {
+  string id = 1;
+  string layer_code = 2;
+  string label = 3;
+  double lat = 4;
+  double lng = 5;
+  string geohash = 6;
+  string icon_key = 7;
+  MarkerVisibility visibility = 8;
+  string place_ref = 9;
+  bytes filter_json = 10; // raw JSON bytes
+  int32 published_revision = 11;
+  google.protobuf.Timestamp deleted_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message LayerSummary {
+  string code = 1;
+  string label_ko = 2;
+  string label_en = 3;
+  string icon_key = 4;
+  int32 display_order = 5;
+  bool default_visible = 6;
+  bool is_active = 7;
+  int32 marker_count = 8;
+}
+
+message PublicationEventSummary {
+  string id = 1;
+  string marker_id = 2;
+  string marker_label = 3;
+  PublicationEventType event_type = 4;
+  bytes payload_json = 5;
+  google.protobuf.Timestamp consumed_at = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// --- ListMarkers ---
+
+message ListMarkersRequest {
+  string layer_code = 1;          // empty = all layers
+  MarkerVisibility visibility_filter = 2; // UNSPECIFIED = all
+  string label_search = 3;
+  string geohash_prefix = 4;
+  string place_ref = 5;           // filter by linked place
+  ontheblock.common.v1.PaginationRequest pagination = 6;
+}
+
+message ListMarkersResponse {
+  repeated MarkerSummary markers = 1;
+  ontheblock.common.v1.PaginationResponse pagination = 2;
+}
+
+// --- GetMarker ---
+
+message GetMarkerRequest {
+  string id = 1;
+}
+
+message GetMarkerResponse {
+  MarkerDetail marker = 1;
+}
+
+// --- CreateMarker ---
+
+message CreateMarkerRequest {
+  string layer_code = 1;
+  string label = 2;
+  double lat = 3;
+  double lng = 4;
+  string icon_key = 5;
+  MarkerVisibility visibility = 6;
+  string place_ref = 7;
+  bytes filter_json = 8;
+}
+
+message CreateMarkerResponse {
+  MarkerDetail marker = 1;
+}
+
+// --- UpdateMarker ---
+
+message UpdateMarkerRequest {
+  string id = 1;
+  string layer_code = 2;
+  string label = 3;
+  double lat = 4;
+  double lng = 5;
+  string icon_key = 6;
+  MarkerVisibility visibility = 7;
+  string place_ref = 8;
+  bytes filter_json = 9;
+}
+
+message UpdateMarkerResponse {
+  MarkerDetail marker = 1;
+}
+
+// --- PublishMarker ---
+
+message PublishMarkerRequest {
+  string id = 1;
+}
+
+message PublishMarkerResponse {
+  MarkerDetail marker = 1;
+}
+
+// --- UnpublishMarker ---
+
+message UnpublishMarkerRequest {
+  string id = 1;
+}
+
+message UnpublishMarkerResponse {
+  MarkerDetail marker = 1;
+}
+
+// --- DeleteMarker ---
+
+message DeleteMarkerRequest {
+  string id = 1;
+}
+
+message DeleteMarkerResponse {}
+
+// --- BatchPublishMarkers ---
+
+message BatchPublishMarkersRequest {
+  repeated string ids = 1;
+}
+
+message BatchPublishMarkersResponse {
+  int32 published_count = 1;
+}
+
+// --- ListPublicationEvents ---
+
+message ListPublicationEventsRequest {
+  string marker_id = 1;                        // empty = all markers
+  string place_ref = 2;
+  PublicationEventType event_type_filter = 3;  // UNSPECIFIED = all
+  bool pending_only = 4;                       // true = consumed_at IS NULL
+  ontheblock.common.v1.PaginationRequest pagination = 5;
+}
+
+message ListPublicationEventsResponse {
+  repeated PublicationEventSummary events = 1;
+  ontheblock.common.v1.PaginationResponse pagination = 2;
+  int32 total_pending_count = 3;
+}
+
+// --- RetriggerPublicationEvent ---
+
+message RetriggerPublicationEventRequest {
+  string id = 1;
+}
+
+message RetriggerPublicationEventResponse {
+  PublicationEventSummary event = 1;
+}
+
+// --- ListLayers ---
+
+message ListLayersRequest {}
+
+message ListLayersResponse {
+  repeated LayerSummary layers = 1;
+}
+
+// --- CreateLayer ---
+
+message CreateLayerRequest {
+  string code = 1;
+  string label_ko = 2;
+  string label_en = 3;
+  string icon_key = 4;
+  int32 display_order = 5;
+  bool default_visible = 6;
+}
+
+message CreateLayerResponse {
+  LayerSummary layer = 1;
+}
+
+// --- UpdateLayer ---
+
+message UpdateLayerRequest {
+  string code = 1;
+  string label_ko = 2;
+  string label_en = 3;
+  string icon_key = 4;
+  bool default_visible = 5;
+  bool is_active = 6;
+}
+
+message UpdateLayerResponse {
+  LayerSummary layer = 1;
+}
+
+// --- DeleteLayer ---
+
+message DeleteLayerRequest {
+  string code = 1;
+}
+
+message DeleteLayerResponse {}
+
+// --- ReorderLayers ---
+
+message LayerOrderEntry {
+  string code = 1;
+  int32 display_order = 2;
+}
+
+message ReorderLayersRequest {
+  repeated LayerOrderEntry entries = 1;
+}
+
+message ReorderLayersResponse {}
+
+// --- GetDashboardStats ---
+
+message GetDashboardStatsRequest {}
+
+message GetDashboardStatsResponse {
+  int32 pending_event_count = 1;
+  int32 pending_change_request_count = 2;
+  int32 active_manager_count = 3;
+  repeated PublicationEventSummary recent_publications = 4;
+}

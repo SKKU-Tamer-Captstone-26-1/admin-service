@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package ontheblock.admin.v1;
+
+option java_package = "com.ontheblock.admin.v1";
+option java_multiple_files = true;
+option go_package = "github.com/ontheblock/infra/proto/admin/v1;adminv1";
+
+import "google/protobuf/timestamp.proto";
+import "common/v1/common.proto";
+
+// StoreAdminService manages store (place) and product data.
+// admin-service is the temporary owner until place-service is extracted.
+// Store creation/deletion is ROLE_ADMIN only.
+// Store data updates flow through ChangeRequestService, not directly here.
+service StoreAdminService {
+  rpc ListStores(ListStoresRequest) returns (ListStoresResponse);
+  rpc GetStore(GetStoreRequest) returns (GetStoreResponse);
+  rpc CreateStore(CreateStoreRequest) returns (CreateStoreResponse);
+  rpc DeleteStore(DeleteStoreRequest) returns (DeleteStoreResponse); // soft delete; ROLE_ADMIN only
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc AssignManagerToStore(AssignManagerToStoreRequest) returns (AssignManagerToStoreResponse);
+  rpc RemoveManagerFromStore(RemoveManagerFromStoreRequest) returns (RemoveManagerFromStoreResponse);
+  // GenerateProductImageUploadUrl issues a GCS signed URL for product image upload.
+  // Integration is deferred; returns UNIMPLEMENTED until GCS bucket is configured.
+  rpc GenerateProductImageUploadUrl(GenerateProductImageUploadUrlRequest) returns (GenerateProductImageUploadUrlResponse);
+}
+
+// --- Enums ---
+
+enum StoreType {
+  STORE_TYPE_UNSPECIFIED = 0;
+  STORE_TYPE_BAR = 1;
+  STORE_TYPE_LIQUOR_SHOP = 2;
+}
+
+enum StoreStatus {
+  STORE_STATUS_UNSPECIFIED = 0;
+  STORE_STATUS_ACTIVE = 1;
+  STORE_STATUS_INACTIVE = 2;
+}
+
+// --- Shared messages ---
+
+message StoreSummary {
+  string id = 1;
+  StoreType type = 2;
+  string name = 3;
+  string address = 4;
+  StoreStatus status = 5;
+  repeated string manager_user_ids = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message StoreDetail {
+  string id = 1;
+  StoreType type = 2;
+  string name = 3;
+  string address = 4;
+  double lat = 5;
+  double lng = 6;
+  bytes business_hours = 7; // JSON bytes; schema determined by frontend
+  string contact = 8;
+  StoreStatus status = 9;
+  repeated string manager_user_ids = 10;
+  google.protobuf.Timestamp deleted_at = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+message ProductSummary {
+  string id = 1;
+  string place_id = 2;
+  string name = 3;
+  string category = 4;
+  string image_url = 5;
+  bool in_stock = 6;
+  int32 price = 7;
+  int32 display_order = 8;
+}
+
+// --- ListStores ---
+
+message ListStoresRequest {
+  StoreType type_filter = 1;
+  StoreStatus status_filter = 2;
+  string name_search = 3;
+  ontheblock.common.v1.PaginationRequest pagination = 4;
+}
+
+message ListStoresResponse {
+  repeated StoreSummary stores = 1;
+  ontheblock.common.v1.PaginationResponse pagination = 2;
+}
+
+// --- GetStore ---
+
+message GetStoreRequest {
+  string id = 1;
+}
+
+message GetStoreResponse {
+  StoreDetail store = 1;
+  repeated ProductSummary products = 2;
+}
+
+// --- CreateStore ---
+
+message CreateStoreRequest {
+  StoreType type = 1;
+  string name = 2;
+  string address = 3;
+  double lat = 4;
+  double lng = 5;
+  bytes business_hours = 6;
+  string contact = 7;
+}
+
+message CreateStoreResponse {
+  StoreDetail store = 1;
+}
+
+// --- DeleteStore ---
+
+message DeleteStoreRequest {
+  string id = 1;
+}
+
+message DeleteStoreResponse {}
+
+// --- ListProducts ---
+
+message ListProductsRequest {
+  string place_id = 1;
+}
+
+message ListProductsResponse {
+  repeated ProductSummary products = 1;
+}
+
+// --- AssignManagerToStore ---
+
+message AssignManagerToStoreRequest {
+  string place_id = 1;
+  string user_id = 2;
+}
+
+message AssignManagerToStoreResponse {}
+
+// --- RemoveManagerFromStore ---
+
+message RemoveManagerFromStoreRequest {
+  string place_id = 1;
+  string user_id = 2;
+}
+
+message RemoveManagerFromStoreResponse {}
+
+// --- GenerateProductImageUploadUrl ---
+
+message GenerateProductImageUploadUrlRequest {
+  string place_id = 1;
+  string product_id = 2; // empty if uploading for a new product
+}
+
+message GenerateProductImageUploadUrlResponse {
+  string upload_url = 1;  // PUT to this URL (valid 15 min), Content-Type: image/jpeg
+  string object_url = 2;  // public GCS URL to store in product.image_url after upload
+}
