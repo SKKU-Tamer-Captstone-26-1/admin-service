@@ -1,0 +1,46 @@
+services:
+  admin-service:
+    build: .
+    container_name: admin-service
+    ports:
+      - "8095:8095"
+      - "9095:9095"
+    environment:
+      - DB_URL=jdbc:postgresql://admin-postgres:5432/ontheblock
+      - DB_USER=${DB_USER:-admin_user}
+      - DB_PASSWORD=${DB_PASSWORD:-admin_pass}
+      - HTTP_PORT=8095
+      - AUTH_SERVICE_ADDR=static://host.docker.internal:9091
+    depends_on:
+      admin-postgres:
+        condition: service_healthy
+    networks:
+      - msa-network
+    restart: unless-stopped
+
+  admin-postgres:
+    image: postgres:16-alpine
+    container_name: admin-postgres
+    ports:
+      - "54320:5432"
+    environment:
+      POSTGRES_DB: ontheblock
+      POSTGRES_USER: ${DB_USER:-admin_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin_pass}
+      TZ: UTC
+    volumes:
+      - admin-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin_user} -d ontheblock"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - msa-network
+
+networks:
+  msa-network:
+    external: true
+
+volumes:
+  admin-postgres-data:
