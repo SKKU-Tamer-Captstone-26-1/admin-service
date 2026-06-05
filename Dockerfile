@@ -1,7 +1,8 @@
-FROM eclipse-temurin:22-jdk-alpine AS builder
+# Builder: glibc 기반(Ubuntu Jammy) - protoc-gen-grpc-java 바이너리가 glibc 필요
+FROM eclipse-temurin:22-jdk-jammy AS builder
 WORKDIR /app
 
-COPY gradlew gradlew.bat settings.gradle build.gradle ./
+COPY gradlew settings.gradle build.gradle ./
 COPY gradle gradle
 COPY proto proto
 RUN chmod +x gradlew && ./gradlew --no-daemon dependencies || true
@@ -9,6 +10,7 @@ RUN chmod +x gradlew && ./gradlew --no-daemon dependencies || true
 COPY src src
 RUN ./gradlew --no-daemon bootJar -x test
 
+# Runtime: 경량 Alpine (JAR만 복사하므로 glibc 불필요)
 FROM eclipse-temurin:22-jre-alpine
 WORKDIR /app
 
