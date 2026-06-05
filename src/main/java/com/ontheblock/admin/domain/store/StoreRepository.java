@@ -23,4 +23,11 @@ public interface StoreRepository extends JpaRepository<StoreEntity, UUID> {
             @Param("status") StoreEntity.StoreStatus status,
             @Param("nameSearch") String nameSearch,
             Pageable pageable);
+
+    @Query("""
+        SELECT s FROM StoreEntity s
+        JOIN StoreManagerMappingEntity m ON m.placeId = s.id
+        WHERE s.deletedAt IS NULL AND m.userId = :userId
+        """)
+    Page<StoreEntity> findAllByManagerUserId(@Param("userId") java.util.UUID userId, Pageable pageable);
 }

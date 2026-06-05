@@ -31,7 +31,10 @@ public class StoreService {
 
     @Transactional(readOnly = true)
     public Page<StoreEntity> listStores(StoreEntity.StoreType type, StoreEntity.StoreStatus status,
-                                         String nameSearch, int page, int pageSize) {
+                                         String nameSearch, String managerUserId, int page, int pageSize) {
+        if (managerUserId != null && !managerUserId.isBlank()) {
+            return storeRepository.findAllByManagerUserId(UUID.fromString(managerUserId), PageRequest.of(page - 1, pageSize));
+        }
         return storeRepository.findAllWithFilters(type, status, nameSearch, PageRequest.of(page - 1, pageSize));
     }
 

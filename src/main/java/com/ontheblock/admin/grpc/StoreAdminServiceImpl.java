@@ -32,7 +32,9 @@ public class StoreAdminServiceImpl extends StoreAdminServiceGrpc.StoreAdminServi
                     ? null : ProtoMapper.toStoreStatusEntity(req.getStatusFilter());
 
             Page<StoreEntity> result = storeService.listStores(
-                    type, status, req.getNameSearch().isBlank() ? null : req.getNameSearch(),
+                    type, status,
+                    req.getNameSearch().isBlank() ? null : req.getNameSearch(),
+                    req.getManagerUserId().isBlank() ? null : req.getManagerUserId(),
                     page, pageSize);
 
             ListStoresResponse.Builder resp = ListStoresResponse.newBuilder()

@@ -86,6 +86,9 @@ message ListStoresRequest {
   StoreStatus status_filter = 2;
   string name_search = 3;
   ontheblock.common.v1.PaginationRequest pagination = 4;
+  // manager_user_id filters stores by the user_id of an assigned manager.
+  // Used by managers to retrieve their own store.
+  string manager_user_id = 5;
 }
 
 message ListStoresResponse {
