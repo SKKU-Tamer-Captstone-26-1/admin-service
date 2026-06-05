@@ -17,7 +17,6 @@ public interface MarkerPublicationEventRepository extends JpaRepository<MarkerPu
         WHERE (:markerId IS NULL OR e.markerId = :markerId)
           AND (:eventType IS NULL OR e.eventType = :eventType)
           AND (:pendingOnly = FALSE OR e.consumedAt IS NULL)
-        ORDER BY e.createdAt DESC
         """)
     Page<MarkerPublicationEventEntity> findAllWithFilters(
             @Param("markerId") UUID markerId,

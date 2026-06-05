@@ -18,7 +18,6 @@ public interface ChangeRequestRepository extends JpaRepository<ChangeRequestEnti
           AND (:requesterId IS NULL OR cr.requesterId = :requesterId)
           AND (:from IS NULL OR cr.createdAt >= :from)
           AND (:to IS NULL OR cr.createdAt <= :to)
-        ORDER BY cr.createdAt DESC
         """)
     Page<ChangeRequestEntity> findAllWithFilters(
             @Param("status") ChangeRequestEntity.Status status,
