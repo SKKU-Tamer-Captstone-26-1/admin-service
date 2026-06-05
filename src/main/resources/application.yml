@@ -1,3 +1,6 @@
+server:
+  port: ${HTTP_PORT:8095}
+
 grpc:
   server:
     port: 9095
@@ -7,6 +10,14 @@ grpc:
     auth-service:
       address: ${AUTH_SERVICE_ADDR:static://localhost:9091}
       negotiation-type: plaintext
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
 
 spring:
   datasource:
