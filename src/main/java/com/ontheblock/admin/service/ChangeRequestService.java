@@ -43,12 +43,9 @@ public class ChangeRequestService {
     public Page<ChangeRequestEntity> listMyRequests(UUID requesterId,
                                                      ChangeRequestEntity.Status status,
                                                      int page, int pageSize) {
-        if (status != null) {
-            return changeRequestRepository.findAllWithFilters(
-                    status, requesterId, null, null, PageRequest.of(page - 1, pageSize));
-        }
-        return changeRequestRepository.findAllByRequesterIdOrderByCreatedAtDesc(
-                requesterId, PageRequest.of(page - 1, pageSize));
+        String statusStr = status != null ? status.name() : null;
+        return changeRequestRepository.findAllWithFilters(
+                statusStr, requesterId, null, null, PageRequest.of(page - 1, pageSize));
     }
 
     @Transactional
@@ -69,8 +66,9 @@ public class ChangeRequestService {
     public Page<ChangeRequestEntity> listAll(ChangeRequestEntity.Status status, UUID requesterId,
                                               LocalDateTime from, LocalDateTime to,
                                               int page, int pageSize) {
+        String statusStr = status != null ? status.name() : null;
         return changeRequestRepository.findAllWithFilters(
-                status, requesterId, from, to, PageRequest.of(page - 1, pageSize));
+                statusStr, requesterId, from, to, PageRequest.of(page - 1, pageSize));
     }
 
     @Transactional(readOnly = true)

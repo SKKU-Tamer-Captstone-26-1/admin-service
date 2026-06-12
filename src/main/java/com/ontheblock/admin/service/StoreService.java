@@ -35,7 +35,9 @@ public class StoreService {
         if (managerUserId != null && !managerUserId.isBlank()) {
             return storeRepository.findAllByManagerUserId(UUID.fromString(managerUserId), PageRequest.of(page - 1, pageSize));
         }
-        return storeRepository.findAllWithFilters(type, status, nameSearch, PageRequest.of(page - 1, pageSize));
+        String typeStr = type != null ? type.name() : null;
+        String statusStr = status != null ? status.name() : null;
+        return storeRepository.findAllWithFilters(typeStr, statusStr, nameSearch, PageRequest.of(page - 1, pageSize));
     }
 
     @Transactional(readOnly = true)

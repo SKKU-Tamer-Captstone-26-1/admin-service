@@ -2,8 +2,7 @@ package com.ontheblock.admin.domain.marker.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.ColumnTransformer;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,7 +23,7 @@ public class MarkerEntity {
     @Column(name = "layer_code", nullable = false, length = 50)
     private String layerCode;
 
-    @Column(name = "place_ref")
+    @Column(name = "place_ref", nullable = false)
     private UUID placeRef;
 
     @Column(name = "label", nullable = false, length = 200)
@@ -47,9 +46,10 @@ public class MarkerEntity {
     @Builder.Default
     private Visibility visibility = Visibility.VISIBLE;
 
-    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filter_json", columnDefinition = "jsonb")
-    private String filterJson;
+    @ColumnTransformer(write = "?::jsonb")
+    @Builder.Default
+    private String filterJson = "{}";
 
     @Column(name = "published_revision", nullable = false)
     @Builder.Default
@@ -76,7 +76,7 @@ public class MarkerEntity {
         this.iconKey = iconKey;
         this.visibility = visibility;
         this.placeRef = placeRef;
-        this.filterJson = filterJson;
+        this.filterJson = filterJson != null ? filterJson : "{}";
         this.updatedAt = LocalDateTime.now();
     }
 

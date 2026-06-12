@@ -1,6 +1,9 @@
 package com.ontheblock.admin.service;
 
 import ch.hsr.geohash.GeoHash;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ontheblock.admin.domain.marker.MarkerLayerRepository;
 import com.ontheblock.admin.domain.marker.MarkerPublicationEventRepository;
 import com.ontheblock.admin.domain.marker.MarkerRepository;
@@ -26,13 +29,15 @@ public class MarkerService {
     private final MarkerLayerRepository markerLayerRepository;
     private final MarkerPublicationEventRepository publicationEventRepository;
     private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public Page<MarkerEntity> listMarkers(String layerCode, MarkerEntity.Visibility visibility,
                                           String labelSearch, String geohashPrefix,
                                           UUID placeRef, int page, int pageSize) {
+        String visibilityStr = visibility != null ? visibility.name() : null;
         return markerRepository.findAllWithFilters(
-                layerCode, visibility, labelSearch, geohashPrefix, placeRef,
+                layerCode, visibilityStr, labelSearch, geohashPrefix, placeRef,
                 PageRequest.of(page - 1, pageSize));
     }
 
@@ -46,10 +51,14 @@ public class MarkerService {
     public MarkerEntity createMarker(String layerCode, String label, double lat, double lng,
                                      String iconKey, MarkerEntity.Visibility visibility,
                                      UUID placeRef, String filterJson) {
+        if (placeRef == null) {
+            throw Status.INVALID_ARGUMENT.withDescription("placeRef is required").asRuntimeException();
+        }
         if (!markerLayerRepository.existsById(layerCode)) {
             throw Status.NOT_FOUND.withDescription("Layer not found: " + layerCode).asRuntimeException();
         }
         String geohash = GeoHash.geoHashStringWithCharacterPrecision(lat, lng, GEOHASH_PRECISION);
+        String effectiveFilterJson = (filterJson == null || filterJson.isBlank()) ? "{}" : filterJson;
         return markerRepository.save(MarkerEntity.builder()
                 .layerCode(layerCode)
                 .label(label)
@@ -59,7 +68,7 @@ public class MarkerService {
                 .iconKey(iconKey)
                 .visibility(visibility != null ? visibility : MarkerEntity.Visibility.VISIBLE)
                 .placeRef(placeRef)
-                .filterJson(filterJson)
+                .filterJson(effectiveFilterJson)
                 .build());
     }
 
@@ -68,9 +77,24 @@ public class MarkerService {
                                      String iconKey, MarkerEntity.Visibility visibility,
                                      UUID placeRef, String filterJson) {
         MarkerEntity marker = getMarker(id);
+        double oldLat = marker.getLat();
+        double oldLng = marker.getLng();
+        String oldLayer = marker.getLayerCode();
+
         String geohash = GeoHash.geoHashStringWithCharacterPrecision(lat, lng, GEOHASH_PRECISION);
         marker.update(layerCode, label, lat, lng, geohash, iconKey, visibility, placeRef, filterJson);
-        return markerRepository.save(marker);
+        MarkerEntity saved = markerRepository.save(marker);
+
+        if (saved.getPublishedRevision() > 0) {
+            if (oldLat != lat || oldLng != lng) {
+                recordPublicationEvent(saved, MarkerPublicationEventEntity.EventType.MARKER_MOVED);
+            }
+            if (!oldLayer.equals(layerCode)) {
+                recordPublicationEvent(saved, MarkerPublicationEventEntity.EventType.MARKER_LAYER_CHANGED);
+            }
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -78,7 +102,7 @@ public class MarkerService {
         MarkerEntity marker = getMarker(id);
         marker.publish();
         markerRepository.save(marker);
-        recordPublicationEvent(marker.getId(), MarkerPublicationEventEntity.EventType.PUBLISHED);
+        recordPublicationEvent(marker, MarkerPublicationEventEntity.EventType.MARKER_PUBLISHED);
         auditLogService.log(actorId, "PUBLISH_MARKER", "MARKER", id, null);
         return marker;
     }
@@ -88,7 +112,9 @@ public class MarkerService {
         MarkerEntity marker = getMarker(id);
         marker.unpublish();
         markerRepository.save(marker);
-        recordPublicationEvent(marker.getId(), MarkerPublicationEventEntity.EventType.UNPUBLISHED);
+        if (marker.getPublishedRevision() > 0) {
+            recordPublicationEvent(marker, MarkerPublicationEventEntity.EventType.MARKER_HIDDEN);
+        }
         auditLogService.log(actorId, "UNPUBLISH_MARKER", "MARKER", id, null);
         return marker;
     }
@@ -98,6 +124,9 @@ public class MarkerService {
         MarkerEntity marker = getMarker(id);
         marker.softDelete();
         markerRepository.save(marker);
+        if (marker.getPublishedRevision() > 0) {
+            recordPublicationEvent(marker, MarkerPublicationEventEntity.EventType.MARKER_DELETED);
+        }
         auditLogService.log(actorId, "DELETE_MARKER", "MARKER", id, null);
     }
 
@@ -120,7 +149,7 @@ public class MarkerService {
         for (MarkerEntity marker : markers) {
             marker.publish();
             markerRepository.save(marker);
-            recordPublicationEvent(marker.getId(), MarkerPublicationEventEntity.EventType.PUBLISHED);
+            recordPublicationEvent(marker, MarkerPublicationEventEntity.EventType.MARKER_PUBLISHED);
         }
         if (!markers.isEmpty()) {
             auditLogService.log(actorId, "REPUBLISH_MARKERS_BY_PLACE", "PLACE", placeRef, null);
@@ -144,10 +173,38 @@ public class MarkerService {
                 markerId, eventType, pendingOnly, PageRequest.of(page - 1, pageSize));
     }
 
-    private void recordPublicationEvent(UUID markerId, MarkerPublicationEventEntity.EventType type) {
+    private void recordPublicationEvent(MarkerEntity marker, MarkerPublicationEventEntity.EventType type) {
         publicationEventRepository.save(MarkerPublicationEventEntity.builder()
-                .markerId(markerId)
+                .markerId(marker.getId())
+                .placeRef(marker.getPlaceRef())
+                .publishedRevision(marker.getPublishedRevision())
                 .eventType(type)
+                .payloadJson(buildCanonicalPayload(marker))
                 .build());
+    }
+
+    private String buildCanonicalPayload(MarkerEntity m) {
+        try {
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("place_ref", m.getPlaceRef() != null ? m.getPlaceRef().toString() : null);
+            node.put("layer_code", m.getLayerCode());
+            node.put("label", m.getLabel());
+            node.put("lat", m.getLat());
+            node.put("lng", m.getLng());
+            node.put("geohash", m.getGeohash());
+            if (m.getIconKey() != null) {
+                node.put("icon_key", m.getIconKey());
+            } else {
+                node.putNull("icon_key");
+            }
+            node.put("visibility", m.getVisibility().name().toLowerCase());
+            String rawFilterJson = m.getFilterJson() == null ? "{}" : m.getFilterJson();
+            node.set("filter_json", objectMapper.readTree(rawFilterJson));
+            node.put("published_revision", m.getPublishedRevision());
+            node.put("published_at", m.getUpdatedAt() != null ? m.getUpdatedAt().toString() : null);
+            return objectMapper.writeValueAsString(node);
+        } catch (JsonProcessingException e) {
+            throw Status.INTERNAL.withCause(e).asRuntimeException();
+        }
     }
 }

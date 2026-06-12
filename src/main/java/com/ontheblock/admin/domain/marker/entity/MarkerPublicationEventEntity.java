@@ -21,12 +21,18 @@ public class MarkerPublicationEventEntity {
     @Column(name = "id", updatable = false)
     private UUID id;
 
-    @Column(name = "marker_id", nullable = false)
+    @Column(name = "marker_id")
     private UUID markerId;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = MarkerPublicationEventTypeConverter.class)
     @Column(name = "event_type", nullable = false, length = 30)
     private EventType eventType;
+
+    @Column(name = "place_ref", nullable = false)
+    private UUID placeRef;
+
+    @Column(name = "published_revision", nullable = false)
+    private int publishedRevision;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload_json", columnDefinition = "jsonb")
@@ -44,6 +50,6 @@ public class MarkerPublicationEventEntity {
     }
 
     public enum EventType {
-        PUBLISHED, UNPUBLISHED
+        MARKER_PUBLISHED, MARKER_HIDDEN, MARKER_MOVED, MARKER_LAYER_CHANGED, MARKER_DELETED
     }
 }

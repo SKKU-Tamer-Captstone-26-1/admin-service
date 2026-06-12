@@ -42,15 +42,25 @@ public final class ProtoMapper {
     public static PublicationEventType toEventTypeProto(MarkerPublicationEventEntity.EventType t) {
         if (t == null) return PublicationEventType.PUBLICATION_EVENT_TYPE_UNSPECIFIED;
         return switch (t) {
-            case PUBLISHED   -> PublicationEventType.PUBLICATION_EVENT_TYPE_PUBLISHED;
-            case UNPUBLISHED -> PublicationEventType.PUBLICATION_EVENT_TYPE_UNPUBLISHED;
+            case MARKER_PUBLISHED     -> PublicationEventType.PUBLICATION_EVENT_TYPE_PUBLISHED;
+            case MARKER_HIDDEN        -> PublicationEventType.PUBLICATION_EVENT_TYPE_HIDDEN;
+            case MARKER_MOVED         -> PublicationEventType.PUBLICATION_EVENT_TYPE_MOVED;
+            case MARKER_LAYER_CHANGED -> PublicationEventType.PUBLICATION_EVENT_TYPE_LAYER_CHANGED;
+            case MARKER_DELETED       -> PublicationEventType.PUBLICATION_EVENT_TYPE_DELETED;
         };
     }
 
     public static MarkerPublicationEventEntity.EventType toEventTypeEntity(PublicationEventType t) {
         return switch (t) {
-            case PUBLICATION_EVENT_TYPE_UNPUBLISHED -> MarkerPublicationEventEntity.EventType.UNPUBLISHED;
-            default -> MarkerPublicationEventEntity.EventType.PUBLISHED;
+            case PUBLICATION_EVENT_TYPE_UNPUBLISHED, PUBLICATION_EVENT_TYPE_HIDDEN ->
+                    MarkerPublicationEventEntity.EventType.MARKER_HIDDEN;
+            case PUBLICATION_EVENT_TYPE_MOVED ->
+                    MarkerPublicationEventEntity.EventType.MARKER_MOVED;
+            case PUBLICATION_EVENT_TYPE_LAYER_CHANGED ->
+                    MarkerPublicationEventEntity.EventType.MARKER_LAYER_CHANGED;
+            case PUBLICATION_EVENT_TYPE_DELETED ->
+                    MarkerPublicationEventEntity.EventType.MARKER_DELETED;
+            default -> MarkerPublicationEventEntity.EventType.MARKER_PUBLISHED;
         };
     }
 
@@ -106,12 +116,14 @@ public final class ProtoMapper {
                                                                       String markerLabel) {
         PublicationEventSummary.Builder b = PublicationEventSummary.newBuilder()
                 .setId(e.getId().toString())
-                .setMarkerId(e.getMarkerId().toString())
                 .setMarkerLabel(markerLabel != null ? markerLabel : "")
                 .setEventType(toEventTypeProto(e.getEventType()))
                 .setCreatedAt(toTimestamp(e.getCreatedAt()))
                 .setConsumedAt(toTimestamp(e.getConsumedAt()));
+        if (e.getMarkerId() != null) b.setMarkerId(e.getMarkerId().toString());
         if (e.getPayloadJson() != null) b.setPayloadJson(ByteString.copyFromUtf8(e.getPayloadJson()));
+        b.setPublishedRevision(e.getPublishedRevision());
+        if (e.getPlaceRef() != null) b.setPlaceRef(e.getPlaceRef().toString());
         return b.build();
     }
 

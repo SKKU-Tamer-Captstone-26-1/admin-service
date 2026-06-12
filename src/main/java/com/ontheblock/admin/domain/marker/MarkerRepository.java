@@ -12,18 +12,28 @@ import java.util.UUID;
 
 public interface MarkerRepository extends JpaRepository<MarkerEntity, UUID> {
 
-    @Query("""
-        SELECT m FROM MarkerEntity m
-        WHERE m.deletedAt IS NULL
-          AND (:layerCode IS NULL OR m.layerCode = :layerCode)
-          AND (:visibility IS NULL OR m.visibility = :visibility)
-          AND (:labelSearch IS NULL OR LOWER(m.label) LIKE LOWER(CONCAT('%', :labelSearch, '%')))
-          AND (:geohashPrefix IS NULL OR m.geohash LIKE CONCAT(:geohashPrefix, '%'))
-          AND (:placeRef IS NULL OR m.placeRef = :placeRef)
-        """)
+    @Query(value = """
+        SELECT * FROM map_view.markers m
+        WHERE m.deleted_at IS NULL
+          AND (CAST(:layerCode AS varchar) IS NULL OR m.layer_code = :layerCode)
+          AND (CAST(:visibility AS varchar) IS NULL OR m.visibility = :visibility)
+          AND (CAST(:labelSearch AS varchar) IS NULL OR LOWER(m.label) LIKE LOWER(CONCAT('%', :labelSearch, '%')))
+          AND (CAST(:geohashPrefix AS varchar) IS NULL OR m.geohash LIKE CONCAT(:geohashPrefix, '%'))
+          AND (CAST(:placeRef AS uuid) IS NULL OR m.place_ref = CAST(:placeRef AS uuid))
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM map_view.markers m
+        WHERE m.deleted_at IS NULL
+          AND (CAST(:layerCode AS varchar) IS NULL OR m.layer_code = :layerCode)
+          AND (CAST(:visibility AS varchar) IS NULL OR m.visibility = :visibility)
+          AND (CAST(:labelSearch AS varchar) IS NULL OR LOWER(m.label) LIKE LOWER(CONCAT('%', :labelSearch, '%')))
+          AND (CAST(:geohashPrefix AS varchar) IS NULL OR m.geohash LIKE CONCAT(:geohashPrefix, '%'))
+          AND (CAST(:placeRef AS uuid) IS NULL OR m.place_ref = CAST(:placeRef AS uuid))
+        """,
+        nativeQuery = true)
     Page<MarkerEntity> findAllWithFilters(
             @Param("layerCode") String layerCode,
-            @Param("visibility") MarkerEntity.Visibility visibility,
+            @Param("visibility") String visibility,
             @Param("labelSearch") String labelSearch,
             @Param("geohashPrefix") String geohashPrefix,
             @Param("placeRef") UUID placeRef,

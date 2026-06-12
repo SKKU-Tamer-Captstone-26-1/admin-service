@@ -11,16 +11,24 @@ import java.util.UUID;
 
 public interface StoreRepository extends JpaRepository<StoreEntity, UUID> {
 
-    @Query("""
-        SELECT s FROM StoreEntity s
-        WHERE s.deletedAt IS NULL
-          AND (:type IS NULL OR s.type = :type)
-          AND (:status IS NULL OR s.status = :status)
-          AND (:nameSearch IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :nameSearch, '%')))
-        """)
+    @Query(value = """
+        SELECT * FROM admin.places s
+        WHERE s.deleted_at IS NULL
+          AND (CAST(:type AS varchar) IS NULL OR s.type = :type)
+          AND (CAST(:status AS varchar) IS NULL OR s.status = :status)
+          AND (CAST(:nameSearch AS varchar) IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :nameSearch, '%')))
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM admin.places s
+        WHERE s.deleted_at IS NULL
+          AND (CAST(:type AS varchar) IS NULL OR s.type = :type)
+          AND (CAST(:status AS varchar) IS NULL OR s.status = :status)
+          AND (CAST(:nameSearch AS varchar) IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :nameSearch, '%')))
+        """,
+        nativeQuery = true)
     Page<StoreEntity> findAllWithFilters(
-            @Param("type") StoreEntity.StoreType type,
-            @Param("status") StoreEntity.StoreStatus status,
+            @Param("type") String type,
+            @Param("status") String status,
             @Param("nameSearch") String nameSearch,
             Pageable pageable);
 

@@ -12,15 +12,23 @@ import java.util.UUID;
 
 public interface ChangeRequestRepository extends JpaRepository<ChangeRequestEntity, UUID> {
 
-    @Query("""
-        SELECT cr FROM ChangeRequestEntity cr
-        WHERE (:status IS NULL OR cr.status = :status)
-          AND (:requesterId IS NULL OR cr.requesterId = :requesterId)
-          AND (:from IS NULL OR cr.createdAt >= :from)
-          AND (:to IS NULL OR cr.createdAt <= :to)
-        """)
+    @Query(value = """
+        SELECT * FROM admin.change_requests cr
+        WHERE (CAST(:status AS varchar) IS NULL OR cr.status = :status)
+          AND (CAST(:requesterId AS uuid) IS NULL OR cr.requester_id = CAST(:requesterId AS uuid))
+          AND (CAST(:from AS timestamp) IS NULL OR cr.created_at >= CAST(:from AS timestamp))
+          AND (CAST(:to AS timestamp) IS NULL OR cr.created_at <= CAST(:to AS timestamp))
+        """,
+        countQuery = """
+        SELECT COUNT(*) FROM admin.change_requests cr
+        WHERE (CAST(:status AS varchar) IS NULL OR cr.status = :status)
+          AND (CAST(:requesterId AS uuid) IS NULL OR cr.requester_id = CAST(:requesterId AS uuid))
+          AND (CAST(:from AS timestamp) IS NULL OR cr.created_at >= CAST(:from AS timestamp))
+          AND (CAST(:to AS timestamp) IS NULL OR cr.created_at <= CAST(:to AS timestamp))
+        """,
+        nativeQuery = true)
     Page<ChangeRequestEntity> findAllWithFilters(
-            @Param("status") ChangeRequestEntity.Status status,
+            @Param("status") String status,
             @Param("requesterId") UUID requesterId,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,

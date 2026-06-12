@@ -64,12 +64,15 @@ public final class MarkerDto {
             String eventType,
             boolean pending,
             LocalDateTime consumedAt,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            UUID placeRef,
+            int publishedRevision
     ) {
         public static PublicationEventResponse from(MarkerPublicationEventEntity e) {
             return new PublicationEventResponse(e.getId(), e.getMarkerId(),
                     e.getEventType().name(), e.getConsumedAt() == null,
-                    e.getConsumedAt(), e.getCreatedAt());
+                    e.getConsumedAt(), e.getCreatedAt(),
+                    e.getPlaceRef(), e.getPublishedRevision());
         }
     }
 }

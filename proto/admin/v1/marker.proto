@@ -54,6 +54,10 @@ enum PublicationEventType {
   PUBLICATION_EVENT_TYPE_UNSPECIFIED = 0;
   PUBLICATION_EVENT_TYPE_PUBLISHED = 1;
   PUBLICATION_EVENT_TYPE_UNPUBLISHED = 2;
+  PUBLICATION_EVENT_TYPE_HIDDEN = 3;
+  PUBLICATION_EVENT_TYPE_MOVED = 4;
+  PUBLICATION_EVENT_TYPE_LAYER_CHANGED = 5;
+  PUBLICATION_EVENT_TYPE_DELETED = 6;
 }
 
 // --- Shared messages ---
@@ -108,6 +112,8 @@ message PublicationEventSummary {
   bytes payload_json = 5;
   google.protobuf.Timestamp consumed_at = 6;
   google.protobuf.Timestamp created_at = 7;
+  string place_ref = 8;
+  int32 published_revision = 9;
 }
 
 // --- ListMarkers ---

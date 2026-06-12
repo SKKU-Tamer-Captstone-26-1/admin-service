@@ -29,8 +29,14 @@ public class PublicationEventController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) {
-        MarkerPublicationEventEntity.EventType type = eventType != null && !eventType.isBlank()
-                ? MarkerPublicationEventEntity.EventType.valueOf(eventType) : null;
+        MarkerPublicationEventEntity.EventType type = null;
+        if (eventType != null && !eventType.isBlank()) {
+            try {
+                type = MarkerPublicationEventEntity.EventType.valueOf(eventType.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                type = null;
+            }
+        }
         Page<MarkerPublicationEventEntity> result = markerService.listPublicationEvents(
                 markerId, type, pendingOnly, page, pageSize);
         return PageResponse.from(result, MarkerDto.PublicationEventResponse::from);
