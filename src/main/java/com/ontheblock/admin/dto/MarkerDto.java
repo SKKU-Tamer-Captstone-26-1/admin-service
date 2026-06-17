@@ -85,7 +85,8 @@ public final class MarkerDto {
                 try {
                     parsedFilterJson = objectMapper.readValue(raw, Map.class);
                 } catch (JsonProcessingException ex) {
-                    throw new RuntimeException("Failed to parse marker filter_json for id=" + e.getId(), ex);
+                    // Keep the endpoint usable even if stored JSON is invalid.
+                    parsedFilterJson = raw;
                 }
             }
             return new MarkerDetailResponse(e.getId(), e.getLayerCode(), e.getLabel(),
