@@ -208,7 +208,10 @@ public class MarkerService {
             marker.updateFilterJson(objectMapper.writeValueAsString(filterJson));
             return markerRepository.save(marker);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to update marker filter_json.inventory for id=" + id, e);
+            throw Status.INTERNAL
+                    .withDescription("Failed to update marker filter_json.inventory for id=" + id)
+                    .withCause(e)
+                    .asRuntimeException();
         }
     }
 
