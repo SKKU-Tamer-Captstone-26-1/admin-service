@@ -182,7 +182,7 @@ public class MarkerService {
         MarkerEntity marker = getMarker(id);
 
         ArrayNode manualItems = objectMapper.createArrayNode();
-        for (InventoryItemInput item : items) {
+        for (InventoryItemInput item : (items != null ? items : List.of())) {
             if (item.nameKo() == null || item.nameKo().isBlank()) {
                 continue;
             }
