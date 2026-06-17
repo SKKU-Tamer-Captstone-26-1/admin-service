@@ -102,7 +102,8 @@ public class MarkerController {
     @PutMapping("/{id}/inventory")
     public MarkerDto.MarkerDetailResponse updateMarkerInventory(
             @PathVariable UUID id, @RequestBody MarkerDto.UpdateInventoryRequest req) {
-        List<MarkerService.InventoryItemInput> items = req.items().stream()
+        List<MarkerDto.InventoryItem> reqItems = req.items() != null ? req.items() : List.of();
+        List<MarkerService.InventoryItemInput> items = reqItems.stream()
                 .map(i -> new MarkerService.InventoryItemInput(i.nameKo(), i.beverageCatalogRef()))
                 .toList();
         MarkerEntity marker = markerService.updateMarkerInventory(id, items);
