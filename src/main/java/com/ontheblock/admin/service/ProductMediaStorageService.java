@@ -46,9 +46,13 @@ public class ProductMediaStorageService {
      *                  in which case a fresh UUID is allocated for the object path.
      */
     public UploadUrlResult generateUploadUrl(String productId) {
-        String effectiveProductId = (productId == null || productId.isBlank())
-                ? UUID.randomUUID().toString()
-                : productId;
+        String effectiveProductId;
+        if (productId == null || productId.isBlank()) {
+            effectiveProductId = UUID.randomUUID().toString();
+        } else {
+            // Validate/canonicalize to prevent object-name path injection.
+            effectiveProductId = UUID.fromString(productId).toString();
+        }
         String objectName = OBJECT_PREFIX + effectiveProductId + "/" + UUID.randomUUID() + "." + EXTENSION;
 
         BlobInfo blobInfo = BlobInfo.newBuilder(bucket, objectName)
