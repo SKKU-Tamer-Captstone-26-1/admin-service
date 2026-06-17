@@ -2,10 +2,10 @@ package com.ontheblock.admin.grpc;
 
 import com.ontheblock.admin.domain.store.entity.StoreEntity;
 import com.ontheblock.admin.grpc.mapper.ProtoMapper;
+import com.ontheblock.admin.service.ProductMediaStorageService;
 import com.ontheblock.admin.service.StoreService;
 import com.ontheblock.admin.v1.*;
 import com.ontheblock.common.v1.PaginationResponse;
-import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import net.devh.boot.grpc.server.service.GrpcService;
@@ -19,6 +19,7 @@ import java.util.UUID;
 public class StoreAdminServiceImpl extends StoreAdminServiceGrpc.StoreAdminServiceImplBase {
 
     private final StoreService storeService;
+    private final ProductMediaStorageService productMediaStorageService;
 
     @Override
     public void listStores(ListStoresRequest req, StreamObserver<ListStoresResponse> obs) {
@@ -147,8 +148,20 @@ public class StoreAdminServiceImpl extends StoreAdminServiceGrpc.StoreAdminServi
     @Override
     public void generateProductImageUploadUrl(GenerateProductImageUploadUrlRequest req,
                                                StreamObserver<GenerateProductImageUploadUrlResponse> obs) {
-        obs.onError(Status.UNIMPLEMENTED
-                .withDescription("Product image upload URL generation is not yet configured. Pending GCS bucket setup.")
-                .asRuntimeException());
+        try {
+            // Validate the linked place exists (reuses Status.NOT_FOUND semantics from StoreService).
+            storeService.getStore(UUID.fromString(req.getPlaceId()));
+
+            ProductMediaStorageService.UploadUrlResult result =
+                    productMediaStorageService.generateUploadUrl(req.getProductId());
+
+            obs.onNext(GenerateProductImageUploadUrlResponse.newBuilder()
+                    .setUploadUrl(result.uploadUrl())
+                    .setObjectUrl(result.objectUrl())
+                    .build());
+            obs.onCompleted();
+        } catch (Exception e) {
+            obs.onError(e);
+        }
     }
 }

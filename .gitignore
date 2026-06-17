@@ -7,3 +7,6 @@ out/
 .idea/
 *.iml
 .DS_Store
+
+# Eclipse/Gradle build output
+bin/

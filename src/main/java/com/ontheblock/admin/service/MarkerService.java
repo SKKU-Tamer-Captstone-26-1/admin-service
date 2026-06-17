@@ -2,7 +2,9 @@ package com.ontheblock.admin.service;
 
 import ch.hsr.geohash.GeoHash;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ontheblock.admin.domain.marker.MarkerLayerRepository;
 import com.ontheblock.admin.domain.marker.MarkerPublicationEventRepository;
@@ -171,6 +173,76 @@ public class MarkerService {
                                                                      int page, int pageSize) {
         return publicationEventRepository.findAllWithFilters(
                 markerId, eventType, pendingOnly, PageRequest.of(page - 1, pageSize));
+    }
+
+    // Merges manually-edited inventory items into filter_json.inventory while preserving any
+    // existing items whose source is not "manual" (i.e. product-sourced or untagged legacy items).
+    @Transactional
+    public MarkerEntity updateMarkerInventory(UUID id, List<InventoryItemInput> items) {
+        MarkerEntity marker = getMarker(id);
+
+        ArrayNode manualItems = objectMapper.createArrayNode();
+        for (InventoryItemInput item : (items != null ? items : List.of())) {
+            if (item.nameKo() == null || item.nameKo().isBlank()) {
+                continue;
+            }
+            manualItems.add(buildInventoryItem(item.nameKo(), item.beverageCatalogRef(), "manual"));
+        }
+
+        try {
+            String existingFilterJson = marker.getFilterJson();
+            JsonNode filterJsonNode = (existingFilterJson == null || existingFilterJson.isBlank())
+                    ? objectMapper.readTree("{}")
+                    : objectMapper.readTree(existingFilterJson);
+            ObjectNode filterJson = filterJsonNode instanceof ObjectNode
+                    ? (ObjectNode) filterJsonNode
+                    : objectMapper.createObjectNode();
+
+            ArrayNode productItems = extractItemsExcludingSource(filterJson.get("inventory"), "manual");
+
+            ArrayNode merged = objectMapper.createArrayNode();
+            merged.addAll(productItems);
+            merged.addAll(manualItems);
+
+            filterJson.set("inventory", merged);
+            marker.updateFilterJson(objectMapper.writeValueAsString(filterJson));
+            return markerRepository.save(marker);
+        } catch (JsonProcessingException e) {
+            throw Status.INTERNAL
+                    .withDescription("Failed to update marker filter_json.inventory for id=" + id)
+                    .withCause(e)
+                    .asRuntimeException();
+        }
+    }
+
+    public record InventoryItemInput(String nameKo, String beverageCatalogRef) {}
+
+    // Builds a single inventory item node using the shared snake_case contract
+    // (name_ko, optional beverage_catalog_ref, source tag).
+    private ObjectNode buildInventoryItem(String nameKo, String beverageCatalogRef, String source) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name_ko", nameKo);
+        if (beverageCatalogRef != null && !beverageCatalogRef.isBlank()) {
+            node.put("beverage_catalog_ref", beverageCatalogRef);
+        }
+        node.put("source", source);
+        return node;
+    }
+
+    // Returns the subset of an existing inventory array whose "source" field is NOT the given
+    // value (kept as-is, untouched). Items without a "source" field are treated as not matching
+    // "manual" and are therefore preserved (i.e. legacy untagged items are kept on the product side).
+    private ArrayNode extractItemsExcludingSource(JsonNode existingInventory, String excludedSource) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (existingInventory == null || !existingInventory.isArray()) {
+            return result;
+        }
+        for (JsonNode item : existingInventory) {
+            if (!item.path("source").asText("").equals(excludedSource)) {
+                result.add(item);
+            }
+        }
+        return result;
     }
 
     private void recordPublicationEvent(MarkerEntity marker, MarkerPublicationEventEntity.EventType type) {

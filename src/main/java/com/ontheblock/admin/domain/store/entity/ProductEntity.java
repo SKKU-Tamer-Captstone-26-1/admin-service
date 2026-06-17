@@ -42,6 +42,9 @@ public class ProductEntity {
     @Builder.Default
     private int displayOrder = 0;
 
+    @Column(name = "beverage_catalog_ref")
+    private String beverageCatalogRef;
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
@@ -54,13 +57,15 @@ public class ProductEntity {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     public void applyChanges(String name, String category, String imageUrl,
-                             boolean inStock, Integer price, int displayOrder) {
+                             boolean inStock, Integer price, int displayOrder,
+                             String beverageCatalogRef) {
         this.name = name;
         this.category = category;
         this.imageUrl = imageUrl;
         this.inStock = inStock;
         this.price = price;
         this.displayOrder = displayOrder;
+        this.beverageCatalogRef = beverageCatalogRef;
         this.updatedAt = LocalDateTime.now();
     }
 

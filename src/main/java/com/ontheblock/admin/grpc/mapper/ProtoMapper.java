@@ -234,6 +234,7 @@ public final class ProtoMapper {
         if (e.getCategory() != null) b.setCategory(e.getCategory());
         if (e.getImageUrl() != null) b.setImageUrl(e.getImageUrl());
         if (e.getPrice() != null)    b.setPrice(e.getPrice());
+        b.setBeverageCatalogRef(e.getBeverageCatalogRef() != null ? e.getBeverageCatalogRef() : "");
         return b.build();
     }
 
