@@ -1,5 +1,6 @@
 package com.ontheblock.admin.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ontheblock.admin.domain.marker.entity.MarkerEntity;
 import com.ontheblock.admin.dto.MarkerDto;
 import com.ontheblock.admin.dto.PageResponse;
@@ -22,6 +23,7 @@ import java.util.UUID;
 public class MarkerController {
 
     private final MarkerService markerService;
+    private final ObjectMapper objectMapper;
 
     @Operation(summary = "마커 목록 조회")
     @GetMapping
@@ -45,8 +47,8 @@ public class MarkerController {
 
     @Operation(summary = "마커 상세 조회")
     @GetMapping("/{id}")
-    public MarkerDto.MarkerSummaryResponse getMarker(@PathVariable UUID id) {
-        return MarkerDto.MarkerSummaryResponse.from(markerService.getMarker(id));
+    public MarkerDto.MarkerDetailResponse getMarker(@PathVariable UUID id) {
+        return MarkerDto.MarkerDetailResponse.from(markerService.getMarker(id), objectMapper);
     }
 
     @Operation(summary = "마커 생성")
@@ -94,6 +96,17 @@ public class MarkerController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteMarker(@PathVariable UUID id, HttpServletRequest request) {
         markerService.deleteMarker(id, ActorIdResolver.resolve(request));
+    }
+
+    @Operation(summary = "마커 inventory 부분 편집")
+    @PutMapping("/{id}/inventory")
+    public MarkerDto.MarkerDetailResponse updateMarkerInventory(
+            @PathVariable UUID id, @RequestBody MarkerDto.UpdateInventoryRequest req) {
+        List<MarkerService.InventoryItemInput> items = req.items().stream()
+                .map(i -> new MarkerService.InventoryItemInput(i.nameKo(), i.beverageCatalogRef()))
+                .toList();
+        MarkerEntity marker = markerService.updateMarkerInventory(id, items);
+        return MarkerDto.MarkerDetailResponse.from(marker, objectMapper);
     }
 
     @Operation(summary = "마커 일괄 발행")

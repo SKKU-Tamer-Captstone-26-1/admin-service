@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.data.domain.Page;
 
+import java.util.List;
 import java.util.UUID;
 
 @GrpcService
@@ -194,6 +195,23 @@ public class MarkerAdminServiceImpl extends MarkerAdminServiceGrpc.MarkerAdminSe
             var event = markerService.retriggerPublicationEvent(UUID.fromString(req.getId()));
             obs.onNext(RetriggerPublicationEventResponse.newBuilder()
                     .setEvent(ProtoMapper.toPublicationEventSummary(event, null))
+                    .build());
+            obs.onCompleted();
+        } catch (Exception e) {
+            obs.onError(e);
+        }
+    }
+
+    @Override
+    public void updateMarkerInventory(UpdateMarkerInventoryRequest req,
+                                       StreamObserver<UpdateMarkerInventoryResponse> obs) {
+        try {
+            List<MarkerService.InventoryItemInput> items = req.getItemsList().stream()
+                    .map(i -> new MarkerService.InventoryItemInput(i.getNameKo(), i.getBeverageCatalogRef()))
+                    .toList();
+            MarkerEntity marker = markerService.updateMarkerInventory(UUID.fromString(req.getId()), items);
+            obs.onNext(UpdateMarkerInventoryResponse.newBuilder()
+                    .setMarker(ProtoMapper.toMarkerDetail(marker))
                     .build());
             obs.onCompleted();
         } catch (Exception e) {

@@ -80,6 +80,11 @@ public class MarkerEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateFilterJson(String filterJson) {
+        this.filterJson = filterJson != null ? filterJson : "{}";
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void publish() {
         this.publishedRevision++;
         this.updatedAt = LocalDateTime.now();

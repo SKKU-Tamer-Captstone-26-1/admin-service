@@ -23,6 +23,8 @@ service MarkerAdminService {
   rpc ListPublicationEvents(ListPublicationEventsRequest) returns (ListPublicationEventsResponse);
   // RetriggerPublicationEvent resets consumed_at to NULL so the event is reprocessed.
   rpc RetriggerPublicationEvent(RetriggerPublicationEventRequest) returns (RetriggerPublicationEventResponse);
+  // UpdateMarkerInventory replaces filter_json.inventory only (draft edit, does not publish).
+  rpc UpdateMarkerInventory(UpdateMarkerInventoryRequest) returns (UpdateMarkerInventoryResponse);
 }
 
 // LayerAdminService manages marker layer metadata and ordering.
@@ -239,6 +241,22 @@ message RetriggerPublicationEventRequest {
 
 message RetriggerPublicationEventResponse {
   PublicationEventSummary event = 1;
+}
+
+// --- UpdateMarkerInventory ---
+
+message MarkerInventoryItem {
+  string name_ko = 1;
+  string beverage_catalog_ref = 2; // optional, empty = 미연결
+}
+
+message UpdateMarkerInventoryRequest {
+  string id = 1;
+  repeated MarkerInventoryItem items = 2;
+}
+
+message UpdateMarkerInventoryResponse {
+  MarkerDetail marker = 1;
 }
 
 // --- ListLayers ---

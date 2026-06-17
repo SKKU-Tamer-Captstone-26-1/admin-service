@@ -51,6 +51,10 @@ dependencies {
     // Geohash
     implementation 'ch.hsr:geohash:1.4.0'
 
+    // GCS signed URL for product image upload (mirrors authorization-service ProfileStorageService)
+    implementation 'com.google.cloud:google-cloud-storage:2.36.1'
+    implementation 'com.google.auth:google-auth-library-oauth2-http:1.23.0'
+
     // DB
     runtimeOnly 'org.postgresql:postgresql'
 
@@ -62,6 +66,10 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 protobuf {

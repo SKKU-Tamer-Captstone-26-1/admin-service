@@ -3,6 +3,10 @@ package com.ontheblock.admin.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.ontheblock.admin.domain.marker.MarkerRepository;
+import com.ontheblock.admin.domain.marker.entity.MarkerEntity;
 import com.ontheblock.admin.domain.store.ProductRepository;
 import com.ontheblock.admin.domain.store.StoreManagerMappingRepository;
 import com.ontheblock.admin.domain.store.StoreRepository;
@@ -26,6 +30,7 @@ public class StoreService {
     private final StoreRepository storeRepository;
     private final ProductRepository productRepository;
     private final StoreManagerMappingRepository mappingRepository;
+    private final MarkerRepository markerRepository;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
 
@@ -141,7 +146,8 @@ public class StoreService {
                                     p.path("image_url").asText(product.getImageUrl()),
                                     p.path("in_stock").asBoolean(product.isInStock()),
                                     p.has("price") ? p.get("price").asInt() : product.getPrice(),
-                                    p.path("display_order").asInt(product.getDisplayOrder())
+                                    p.path("display_order").asInt(product.getDisplayOrder()),
+                                    p.path("beverage_catalog_ref").asText(product.getBeverageCatalogRef())
                             );
                             productRepository.save(product);
                         });
@@ -155,6 +161,7 @@ public class StoreService {
                                 .inStock(p.path("in_stock").asBoolean(true))
                                 .price(p.has("price") ? p.get("price").asInt() : null)
                                 .displayOrder(p.path("display_order").asInt(0))
+                                .beverageCatalogRef(p.path("beverage_catalog_ref").asText(null))
                                 .build());
                     }
                 }
@@ -162,5 +169,74 @@ public class StoreService {
         } catch (JsonProcessingException e) {
             throw Status.INVALID_ARGUMENT.withDescription("Invalid proposed_changes JSON").asRuntimeException();
         }
+        syncMarkerInventoryFromProducts(placeId);
+    }
+
+    // Merges marker filter_json.inventory with the store's current products so that
+    // beverageCatalogRef flows through to map snapshot -> recommendation, while preserving
+    // manually-added inventory items (source == "manual").
+    void syncMarkerInventoryFromProducts(UUID placeId) {
+        List<ProductEntity> products = productRepository.findAllByPlaceIdAndDeletedAtIsNullOrderByDisplayOrderAsc(placeId);
+
+        ArrayNode productItems = objectMapper.createArrayNode();
+        for (ProductEntity product : products) {
+            ObjectNode item = buildInventoryItem(product.getName(), product.getBeverageCatalogRef(), "product");
+            productItems.add(item);
+        }
+
+        List<MarkerEntity> markers = markerRepository.findAllByPlaceRefAndDeletedAtIsNull(placeId);
+        if (markers.isEmpty()) {
+            return;
+        }
+
+        try {
+            for (MarkerEntity marker : markers) {
+                String existingFilterJson = marker.getFilterJson();
+                JsonNode filterJsonNode = (existingFilterJson == null || existingFilterJson.isBlank())
+                        ? objectMapper.readTree("{}")
+                        : objectMapper.readTree(existingFilterJson);
+                ObjectNode filterJson = filterJsonNode instanceof ObjectNode
+                        ? (ObjectNode) filterJsonNode
+                        : objectMapper.createObjectNode();
+
+                ArrayNode manualItems = extractItemsBySource(filterJson.get("inventory"), "manual");
+
+                ArrayNode merged = objectMapper.createArrayNode();
+                merged.addAll(productItems);
+                merged.addAll(manualItems);
+
+                filterJson.set("inventory", merged);
+                marker.updateFilterJson(objectMapper.writeValueAsString(filterJson));
+                markerRepository.save(marker);
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to sync marker filter_json.inventory for placeId=" + placeId, e);
+        }
+    }
+
+    // Builds a single inventory item node using the shared snake_case contract
+    // (name_ko, optional beverage_catalog_ref, source tag).
+    private ObjectNode buildInventoryItem(String nameKo, String beverageCatalogRef, String source) {
+        ObjectNode item = objectMapper.createObjectNode();
+        item.put("name_ko", nameKo);
+        if (beverageCatalogRef != null && !beverageCatalogRef.isBlank()) {
+            item.put("beverage_catalog_ref", beverageCatalogRef);
+        }
+        item.put("source", source);
+        return item;
+    }
+
+    // Returns the subset of an existing inventory array whose "source" field equals the given value.
+    private ArrayNode extractItemsBySource(JsonNode existingInventory, String source) {
+        ArrayNode result = objectMapper.createArrayNode();
+        if (existingInventory == null || !existingInventory.isArray()) {
+            return result;
+        }
+        for (JsonNode item : existingInventory) {
+            if (item.path("source").asText("").equals(source)) {
+                result.add(item);
+            }
+        }
+        return result;
     }
 }

@@ -77,6 +77,8 @@ message ProductSummary {
   bool in_stock = 6;
   int32 price = 7;
   int32 display_order = 8;
+  // recommendation beverage 카탈로그 참조(catalog_key); FK 아님, 빈 문자열이면 미연결
+  string beverage_catalog_ref = 9;
 }
 
 // --- ListStores ---
